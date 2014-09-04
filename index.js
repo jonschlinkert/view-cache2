@@ -44,7 +44,6 @@ var merge = _.merge;
 function Template(options) {
   Delimiters.call(this, options);
   Storage.call(this, options);
-  this.defaultOptions();
   this.defaultConfig();
 }
 
@@ -59,16 +58,18 @@ extend(Template.prototype, Delimiters.prototype);
  */
 
 Template.prototype.defaultConfig = function() {
+  this.defaultOptions();
+
   // Prime root engines and parsers
   this.engines = this.engines || {};
   this.parsers = this.parsers || {};
+  this.layoutSettings = {};
 
   // Prime the cache
   this.set('viewType', {});
   this.set('viewType.partial', []);
   this.set('viewType.renderable', []);
   this.set('viewType.layout', []);
-  this.set('layoutEngines', {});
   this.set('loader', loader(this.options));
   this.set('parsers', new Parsers(this.parsers));
   this.set('engines', new Engines(this.engines));
@@ -82,6 +83,7 @@ Template.prototype.defaultConfig = function() {
   this.set('layouts', {});
   this.set('partials', {});
   this.set('pages', {});
+
 
   this.defaultTemplates();
   this.defaultParsers();
@@ -182,12 +184,10 @@ Template.prototype.defaultTemplates = function() {
  */
 
 Template.prototype.lazyLayouts = function(ext, options) {
-  var engines = this.get('layoutEngines');
-
-  if (!engines.hasOwnProperty(ext)) {
+  if (!this.layoutSettings.hasOwnProperty(ext)) {
     var opts = extend({}, this.options, options);
 
-    engines[ext] = new Layouts({
+    this.layoutSettings[ext] = new Layouts({
       locals: opts.locals,
       layouts: opts.layouts,
       delims: opts.layoutDelims,
@@ -593,7 +593,7 @@ Template.prototype._normalizeTemplates = function (plural, files, locals, option
       if (ext[0] !== '.') {
         ext = '.' + ext;
       }
-      this.get('layoutEngines')[ext].setLayout(this.cache[plural]);
+      this.layoutSettings[ext].setLayout(this.cache[plural]);
     }
   }.bind(this));
 };
@@ -674,7 +674,7 @@ Template.prototype.render = function (file, options, cb) {
   var content = file.content;
 
   // If a layout engine is defined, run it and update the content.
-  var layoutEngine = this.get('layoutEngines')[ext];
+  var layoutEngine = this.layoutSettings[ext];
   if (!!layoutEngine) {
     var layout = this.determineLayout(file);
     var obj = layoutEngine.render(file.content, layout);
@@ -715,7 +715,7 @@ Template.prototype.buildContext = function(file, methodLocals) {
 
   var fileRoot = _.omit(file, ['data', 'orig', 'locals']);
   var res = merge({}, this.cache.data, methodLocals, fileRoot, file.data, file.locals);
-  console.log(res);
+  // console.log(res);
   return res;
 };
 
