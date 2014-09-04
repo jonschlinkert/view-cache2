@@ -24,6 +24,11 @@ template.option('rename', function (filepath) {
   return filepath;
 });
 
+// template.option('contextFn', function (file, locals) {
+//   var fileRoot = _.omit(file, ['data', 'orig', 'locals']);
+//   return _.merge({}, this.cache.data, locals, fileRoot, file.data, file.locals);
+// });
+
 // template.create('post', 'posts', {renderable: true});
 // template.post('home.md', 'this is content.', {layout: 'base.md'});
 
@@ -66,7 +71,7 @@ template.layout('default.md', [
 
 template.render('home.md', function (err, content) {
   if (err) console.log(err);
-  console.log(content);
+  // console.log(content);
 });
 
 // console.log(template);
