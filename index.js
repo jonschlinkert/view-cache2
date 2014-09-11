@@ -44,7 +44,6 @@ var merge = _.merge;
 function Template(options) {
   Delimiters.call(this, options);
   Storage.call(this, options);
-  this.defaultOptions();
   this.init();
 }
 
@@ -80,6 +79,7 @@ Template.prototype.init = function() {
   this.viewType.layout = [];
   this.layoutSettings = {};
 
+  this.defaultOptions();
   this.defaultConfig();
   this.defaultTemplates();
   this.defaultParsers();
@@ -149,9 +149,8 @@ Template.prototype.defaultOptions = function() {
  */
 
 Template.prototype.defaultParsers = function() {
-  // get default extensions
-  var extensions = this.option('extensions');
-  this.parser(extensions, require('parser-front-matter'));
+  var ext = this.option('extensions');
+  this.parser(ext, require('parser-front-matter'));
   this.parser('*', require('parser-noop'));
 };
 
@@ -166,8 +165,8 @@ Template.prototype.defaultParsers = function() {
  */
 
 Template.prototype.defaultEngines = function() {
-  var extensions = this.option('extensions');
-  this.engine(extensions, require('engine-lodash'), {
+  var ext = this.option('extensions');
+  this.engine(ext, require('engine-lodash'), {
     layoutDelims: ['{%', '%}'],
     destExt: '.html'
   });
@@ -188,6 +187,29 @@ Template.prototype.defaultTemplates = function() {
   this.create('page', 'pages', {renderable: true});
   this.create('layout', 'layouts', {layout: true});
   this.create('partial', 'partials');
+};
+
+
+/**
+ * Register default template types.
+ *
+ * @api private
+ */
+
+Template.prototype.defaultLoader = function() {
+
+};
+Template.prototype.load = function() {
+
+};
+Template.prototype.read = function() {
+
+};
+Template.prototype.renameKey = function() {
+
+};
+Template.prototype.rename = function() {
+
 };
 
 
@@ -468,7 +490,7 @@ Template.prototype.addHelperAsync = function (name, fn, thisArg) {
 
 
 /**
- * Private method for adding default async helpers.
+ * Automatically adds an async helper for each template type.
  *
  * @param {String} `type` The type of template.
  * @param {String} `plural` Plural form of `type`.
@@ -516,7 +538,7 @@ Template.prototype._addHelperAsync = function (type, plural, addHelper) {
  * @api private
  */
 
-Template.prototype._setType = function (plural, opts) {
+Template.prototype._setViewType = function (plural, opts) {
   var type = this.viewType;
 
   if (opts.renderable) {
@@ -549,9 +571,7 @@ Template.prototype.create = function(type, plural, options) {
   }
 
   var opts = extend({}, options);
-  if (!this.cache[plural]) {
-    this.cache[plural] = {};
-  }
+  this.cache[plural] = this.cache[plural] = {};
 
   if (opts.delims) {
     this.viewType.delims[type] = this.makeDelims(opts.delims);
@@ -562,98 +582,17 @@ Template.prototype.create = function(type, plural, options) {
   }
 
   // Add a `viewType` to the cache for `plural`
-  this._setType(plural, opts);
-
-  /**
-   * Singular template `type` (e.g. `page`)
-   */
+  this._setViewType(plural, opts);
 
   Template.prototype[type] = function (key, value, locals, options) {
     var args = [].slice.call(arguments);
 
-    // Only assume 2 args when the first is an object.
-    if (typeOf(key) === 'object') {
-      if (args.length === 2) {
-        args[1]._opts = extend({}, this.options, value);
-      }
-      if (args.length === 1) {
-        if (Object.keys(key).length === 1) {
-          _.forOwn(key, function (value, key) {
-            value.path = value.path || key;
-            value._opts = extend({}, this.options, key);
-          }.bind(this));
-        }
-      }
-    }
-
-    if (typeOf(key) === 'string') {
-      if (typeOf(value) === 'string') {
-        if (args.length === 4) {
-          args[3] = extend({}, this.options, options);
-        }
-        if (args.length === 3) {
-          args[2]._opts = extend({}, this.options, locals);
-        }
-      }
-      if (typeOf(value) === 'object') {
-        if (args.length === 2) {
-          args[1]._opts = extend({}, this.options, value);
-        }
-        if (args.length === 1) {
-          args[1] = {};
-          args[1]._opts = extend({}, this.options);
-        }
-      }
-    }
-
-    // load templates. options are passed to loader in `.init()`
-    var load = this._.loader.load;
-    var files = load.apply(load, args);
-
-    this._normalizeTemplates(type, plural, files, locals, opts);
     return this;
   };
-
-
-  /**
-   * Plural template `type` (e.g. `pages`)
-   */
 
   Template.prototype[plural] = function (pattern, locals, options) {
     var args = [].slice.call(arguments);
 
-    if (!args.length) {
-      return this.cache[plural];
-    }
-
-    // Only assume 2 args when the first is an object.
-    if (typeOf(pattern) === 'object') {
-      if (args.length === 2) {
-        args[1]._opts = extend({}, this.options, locals);
-      }
-      if (args.length === 1) {
-        args[0]._opts = extend({}, this.options, locals);
-      }
-    }
-
-    if (typeOf(pattern) === 'string' || Array.isArray(pattern)) {
-      if (args.length === 3) {
-        args[2] = extend({}, this.options, options);
-      }
-      if (args.length === 2) {
-        args[1]._opts = extend({}, this.options, locals);
-      }
-      if (args.length === 1) {
-        args[1] = {};
-        args[1]._opts = extend({}, this.options);
-      }
-    }
-
-    // load templates. options are passed to loader in `.init()`
-    var load = this._.loader.load;
-    var files = load.apply(load, args);
-
-    this._normalizeTemplates(type, plural, files, locals, opts);
     return this;
   };
 
@@ -661,7 +600,6 @@ Template.prototype.create = function(type, plural, options) {
   if (!this._.helpers.hasOwnProperty(type)) {
     this._addHelperAsync(type, plural);
   }
-
   return this;
 };
 
@@ -676,27 +614,20 @@ Template.prototype.create = function(type, plural, options) {
  * @api private
  */
 
-Template.prototype._normalizeTemplates = function (type, plural, files, locals, options) {
+Template.prototype.normalize = function (type, plural, files, locals, options) {
   var opts = extend({}, options);
 
-  _.forOwn(files, function (file, key) {
-    var ext = path.extname(file.path) || opts.ext || this.option('ext');
+  _.forOwn(files, function (value, key, locals) {
+    var ext = path.extname(value.path) || opts.ext || this.option('ext');
     if (ext && ext[0] !== '.') {
       ext = '.' + ext;
     }
 
-    var fileProps = ['data', 'content', 'orig', 'path'];
+    // var stack = this.getParsers(ext);
+    // var value = this.parseSync(root, stack, root.data);
 
-    // Separate the `root` properties from the `data`
-    var root = _.pick(file, fileProps);
-    var data = merge({}, _.omit(file, fileProps));
-    root.data = merge({}, data, locals, root.data);
-
-    var stack = this.getParsers(ext);
-    var value = this.parseSync(root, stack, root.data);
-
-    value._opts = extend({}, opts);
-    value._opts.viewType = type;
+    // value._opts = extend({}, opts);
+    // value._opts.viewType = type;
 
     this.cache[plural][key] = value;
 
